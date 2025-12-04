@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 
-const API = 'http://localhost:4000'; // change if needed
-
+ //const API = 'http://localhost:4000'; // change if needed
+const API='https://shopify-backend-pqh8.onrender.com'
 
 export default function App() {
 const [reviews, setReviews] = useState([]);
@@ -11,7 +11,7 @@ const [loading, setLoading] = useState(false);
 
 async function fetchReviews() {
 setLoading(true);
-const res = await fetch(`http://localhost:4000/api/reviews/admin/list`);
+const res = await fetch(`${API}/api/reviews/admin/list`);
 const json = await res.json();
 setReviews(json.reviews || []);
 setLoading(false);
