@@ -112,7 +112,7 @@
   if (!container) return;
 
   let productId = window.__LOOX_PRODUCT_ID;
-  const BASE = window.__LOOX_BASE_URL;
+ const BASE = "https://shopify-backend-pqh8.onrender.com";
 
   // Convert Shopify GID to Numeric ID (Safety)
   if (String(productId).includes("gid://")) {
