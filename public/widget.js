@@ -104,7 +104,7 @@
   const container = document.getElementById("loox-reviews");
   if (!container) return;
 
-  const BASE = window.__LOOX_BASE_URL;
+  const BASE = "https://shopify-backend-pqh8.onrender.com";
   let productId = window.__LOOX_PRODUCT_ID;
 
   if (!productId) {
