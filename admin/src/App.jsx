@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 
- //const API = 'http://localhost:4000'; // change if needed
-const API='https://shopify-backend-pqh8.onrender.com'
+ const API = 'http://localhost:4000'; // change if needed
+//const API='https://shopify-backend-pqh8.onrender.com'
 
 export default function App() {
 const [reviews, setReviews] = useState([]);
