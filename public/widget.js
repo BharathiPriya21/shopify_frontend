@@ -106,20 +106,20 @@
 
 
 (async function () {
-  // Wait until DOM is ready
   document.addEventListener('DOMContentLoaded', async () => {
 
     const BASE = "https://shopify-backend-pqh8.onrender.com";
     let productId = window.__LOOX_PRODUCT_ID;
-
     if (!productId) return;
 
-    // GID → number
     if (typeof productId === "string" && productId.includes("gid://")) {
       productId = productId.replace("gid://shopify/Product/", "");
     }
 
-    // Insert review container below Buy It Now button
+    // Prevent duplicate insertion
+    if (document.getElementById("loox-reviews-container")) return;
+
+    // Find the Buy It Now button
     const buyNowBtn = Array.from(document.querySelectorAll('button')).find(
       b => b.innerText.trim().toLowerCase() === 'buy it now'
     );
