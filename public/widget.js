@@ -455,7 +455,7 @@
     form.append("product_id", productId);
     if (photo) form.append("photo", photo);
 
-    const res = await fetch(`${BASE}/api/reviews/create`, {
+    const res = await fetch(`${BASE}/api/reviews/review`, {
       method: "POST",
       body: form
     });
