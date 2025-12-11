@@ -1,206 +1,258 @@
+
 // (async function () {
 //   const container = document.getElementById("loox-reviews");
 //   if (!container) return;
 
-//   container.innerHTML = "Loading reviews...";
-
-//   const productId = window.__LOOX_PRODUCT_ID;
-//   const BASE = window.__LOOX_BASE_URL;
-
-//   try {
-//     const res = await fetch(`${BASE}/api/reviews/${productId}`);
-//     const json = await res.json();
-
-//     if (!json.success || json.reviews.length === 0) {
-//       container.innerHTML = "No reviews yet.";
-//       return;
-//     }
-
-//     const html = json.reviews
-//       .map(
-//         (r) => `
-//       <div style="padding:10px; border:1px solid #ddd; margin-bottom:10px; border-radius:6px;">
-//         <b>${r.customer_name}</b><br/>
-//         Rating: ${r.rating}<br/>
-//         <small>${new Date(r.created_at).toLocaleString()}</small>
-//       </div>
-//     `
-//       )
-//       .join("");
-
-//     container.innerHTML = html;
-//   } catch (err) {
-//     container.innerHTML = "Error loading reviews.";
-//     console.error(err);
-//   }
-// })();
-// (async function () {
-//   const container = document.getElementById("loox-reviews");
-//   if (!container) return;
-
-//   container.innerHTML = "Loading reviews...";
-
+//   const BASE = "https://shopify-backend-pqh8.onrender.com";
 //   let productId = window.__LOOX_PRODUCT_ID;
-//   const BASE = window.__LOOX_BASE_URL;
 
-//   // ⭐ Fix: ensure productId exists
 //   if (!productId) {
 //     container.innerHTML = "Product ID missing.";
 //     return;
 //   }
 
-//   // ⭐ Fix for Shopify GID → Plain Number
+//   // GID → number
 //   if (typeof productId === "string" && productId.includes("gid://")) {
 //     productId = productId.replace("gid://shopify/Product/", "");
 //   }
 
-//   console.log("➡️ Widget Loaded");
-//   console.log("Product ID:", productId);
-//   console.log("Backend API:", `${BASE}/api/reviews/${productId}`);
+//   // render reviews + button + modal
+//   container.innerHTML = `
+//     <div id="reviews-list">Loading reviews...</div>
+//     <button id="open-review-btn" style="margin-top:8px;padding:6px 12px;">Write a Review</button>
 
-//   try {
-//     const res = await fetch(`${BASE}/api/reviews/${productId}`, {
-//       method: "GET",
-//       headers: {
-//         "Content-Type": "application/json"
+//     <div id="review-modal" style="display:none; position:fixed; right:20px; top:80px; width:300px; z-index:9999; background:#fff; border:1px solid #ddd; padding:10px; border-radius:6px;">
+//       <button id="close-review-btn" style="float:right;">✕</button>
+//       <h4>Write a Review</h4>
+//       <input id="rv-name" placeholder="Your name" style="width:100%; margin-bottom:6px;" />
+//       <input id="rv-rating" type="number" min="1" max="5" placeholder="Rating" style="width:100%; margin-bottom:6px;" />
+//       <textarea id="rv-text" placeholder="Write your review" style="width:100%; height:60px; margin-bottom:6px;"></textarea>
+//       <input id="rv-photos" type="file" multiple style="margin-bottom:6px;" />
+//       <button id="rv-submit" style="width:100%;">Submit</button>
+//       <div id="rv-msg" style="margin-top:6px; font-size:12px;"></div>
+//     </div>
+//   `;
+
+//   const reviewsList = document.getElementById("reviews-list");
+//   const modal = document.getElementById("review-modal");
+//   const btnOpen = document.getElementById("open-review-btn");
+//   const btnClose = document.getElementById("close-review-btn");
+
+//   // open/close modal
+//   btnOpen.addEventListener("click", () => modal.style.display = "block");
+//   btnClose.addEventListener("click", () => modal.style.display = "none");
+
+//   // load reviews
+//   async function loadReviews() {
+//     reviewsList.innerHTML = "Loading reviews...";
+//     try {
+//       const res = await fetch(`${BASE}/api/reviews/${productId}`);
+//       const json = await res.json();
+//       if (!json.success || !json.reviews || json.reviews.length === 0) {
+//         reviewsList.innerHTML = "No reviews yet.";
+//         return;
 //       }
-//     });
-
-//     if (!res.ok) {
-//       console.error("HTTP ERROR:", res.status, res.statusText);
-//       container.innerHTML = "Error loading reviews.";
-//       return;
+//       reviewsList.innerHTML = json.reviews.map(r => `
+//         <div style="border:1px solid #ddd; margin-bottom:6px; padding:4px; border-radius:4px;">
+//           <b>${r.customer_name || "Customer"}</b> ⭐ ${r.rating}<br/>
+//           ${r.review_text || ""}
+//         </div>
+//       `).join("");
+//     } catch(e) {
+//       reviewsList.innerHTML = "Error loading reviews.";
+//       console.error(e);
 //     }
-
-//     const json = await res.json();
-
-//     if (!json.success || !Array.isArray(json.reviews) || json.reviews.length === 0) {
-//       container.innerHTML = "No reviews yet.";
-//       return;
-//     }
-
-//     const html = json.reviews
-//       .map(
-//         (r) => `
-//       <div style="padding:10px; border:1px solid #ddd; margin-bottom:10px; border-radius:6px;">
-//         <b>${r.customer_name || "Customer"}</b><br/>
-//         ⭐ Rating: ${r.rating}<br/>
-//         <small>${new Date(r.created_at).toLocaleString()}</small>
-//       </div>
-//     `
-//       )
-//       .join("");
-
-//     container.innerHTML = html;
-
-//   } catch (err) {
-//     container.innerHTML = "Error loading reviews.";
-//     console.error(" Widget Error:", err);
 //   }
+
+//   // submit review
+//   document.getElementById("rv-submit").addEventListener("click", async () => {
+//     const name = document.getElementById("rv-name").value.trim();
+//     const rating = document.getElementById("rv-rating").value;
+//     const text = document.getElementById("rv-text").value.trim();
+//     const photos = document.getElementById("rv-photos").files;
+
+//     if (!rating || rating < 1 || rating > 5) {
+//       document.getElementById("rv-msg").innerText = "Enter rating 1-5";
+//       return;
+//     }
+
+//     const fd = new FormData();
+//     fd.append("product_id", productId);
+//     fd.append("customer_name", name || "Customer");
+//     fd.append("rating", rating);
+//     fd.append("review_text", text || "");
+//     for (let i=0;i<photos.length;i++) fd.append("images", photos[i]);
+
+//     document.getElementById("rv-msg").innerText = "Submitting...";
+//     try {
+//       const resp = await fetch(`${BASE}/api/reviews/review`, { method:"POST", body: fd });
+//       const j = await resp.json();
+//       if (resp.ok && j.success) {
+//         document.getElementById("rv-msg").innerText = "Submitted!";
+//         modal.style.display = "none";
+//         setTimeout(loadReviews, 500);
+//       } else {
+//         document.getElementById("rv-msg").innerText = j.error || j.message || "Failed";
+//       }
+//     } catch(err) {
+//       document.getElementById("rv-msg").innerText = "Network error";
+//       console.error(err);
+//     }
+//   });
+
+//   // initial load
+//   loadReviews();
 // })();
 
 
 (async function () {
-  const container = document.getElementById("loox-reviews");
-  if (!container) return;
+  // Wait until DOM is ready
+  document.addEventListener('DOMContentLoaded', async () => {
 
-  const BASE = "https://shopify-backend-pqh8.onrender.com";
-  let productId = window.__LOOX_PRODUCT_ID;
+    const BASE = "https://shopify-backend-pqh8.onrender.com";
+    let productId = window.__LOOX_PRODUCT_ID;
 
-  if (!productId) {
-    container.innerHTML = "Product ID missing.";
-    return;
-  }
+    if (!productId) return;
 
-  // GID → number
-  if (typeof productId === "string" && productId.includes("gid://")) {
-    productId = productId.replace("gid://shopify/Product/", "");
-  }
+    // GID → number
+    if (typeof productId === "string" && productId.includes("gid://")) {
+      productId = productId.replace("gid://shopify/Product/", "");
+    }
 
-  // render reviews + button + modal
-  container.innerHTML = `
-    <div id="reviews-list">Loading reviews...</div>
-    <button id="open-review-btn" style="margin-top:8px;padding:6px 12px;">Write a Review</button>
+    // Insert review container below Buy Now button
+    const buyNowBtn = document.querySelector('.product__buy-button'); // adjust selector if needed
+    if (!buyNowBtn) return;
 
-    <div id="review-modal" style="display:none; position:fixed; right:20px; top:80px; width:300px; z-index:9999; background:#fff; border:1px solid #ddd; padding:10px; border-radius:6px;">
-      <button id="close-review-btn" style="float:right;">✕</button>
-      <h4>Write a Review</h4>
-      <input id="rv-name" placeholder="Your name" style="width:100%; margin-bottom:6px;" />
-      <input id="rv-rating" type="number" min="1" max="5" placeholder="Rating" style="width:100%; margin-bottom:6px;" />
-      <textarea id="rv-text" placeholder="Write your review" style="width:100%; height:60px; margin-bottom:6px;"></textarea>
-      <input id="rv-photos" type="file" multiple style="margin-bottom:6px;" />
-      <button id="rv-submit" style="width:100%;">Submit</button>
-      <div id="rv-msg" style="margin-top:6px; font-size:12px;"></div>
-    </div>
-  `;
+    const reviewWrapper = document.createElement('div');
+    reviewWrapper.id = "loox-reviews-container";
+    reviewWrapper.style.marginTop = "20px";
+    buyNowBtn.parentNode.insertBefore(reviewWrapper, buyNowBtn.nextSibling);
 
-  const reviewsList = document.getElementById("reviews-list");
-  const modal = document.getElementById("review-modal");
-  const btnOpen = document.getElementById("open-review-btn");
-  const btnClose = document.getElementById("close-review-btn");
+    reviewWrapper.innerHTML = `
+      <div id="loox-reviews" style="max-width:400px;">
+        <div id="reviews-list">Loading reviews...</div>
+        <button id="open-review-btn" 
+          style="
+            margin-top: 10px; 
+            padding: 6px 12px; 
+            background-color: #007bff; 
+            color: #fff; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer;
+          "
+        >Write a Review</button>
+        <div id="review-modal" 
+          style="
+            display:none; 
+            position: fixed; 
+            right: 20px; 
+            top: 80px; 
+            width: 300px; 
+            z-index: 9999; 
+            background: #fff; 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            border-radius: 6px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          "
+        >
+          <button id="close-review-btn" style="float:right; background:none; border:none; cursor:pointer;">✕</button>
+          <h4 style="margin-top:0;">Write a Review</h4>
+          <input id="rv-name" placeholder="Your name" style="width:100%; margin-bottom:6px; padding:4px;" />
+          <input id="rv-rating" type="number" min="1" max="5" placeholder="Rating" style="width:100%; margin-bottom:6px; padding:4px;" />
+          <textarea id="rv-text" placeholder="Write your review" style="width:100%; margin-bottom:6px; padding:4px;"></textarea>
+          <input id="rv-photos" type="file" multiple style="width:100%; margin-bottom:6px; padding:4px;" />
+          <button id="rv-submit" 
+            style="
+              padding: 6px 12px; 
+              background-color: #28a745; 
+              color: #fff; 
+              border: none; 
+              border-radius: 4px; 
+              cursor: pointer;
+            "
+          >Submit</button>
+          <div id="rv-msg" style="margin-top:6px;"></div>
+        </div>
+      </div>
+    `;
 
-  // open/close modal
-  btnOpen.addEventListener("click", () => modal.style.display = "block");
-  btnClose.addEventListener("click", () => modal.style.display = "none");
+    const reviewsList = document.getElementById("reviews-list");
+    const modal = document.getElementById("review-modal");
+    const btnOpen = document.getElementById("open-review-btn");
+    const btnClose = document.getElementById("close-review-btn");
 
-  // load reviews
-  async function loadReviews() {
-    reviewsList.innerHTML = "Loading reviews...";
-    try {
-      const res = await fetch(`${BASE}/api/reviews/${productId}`);
-      const json = await res.json();
-      if (!json.success || !json.reviews || json.reviews.length === 0) {
-        reviewsList.innerHTML = "No reviews yet.";
+    // Hover effect for open button
+    btnOpen.addEventListener("mouseenter", () => btnOpen.style.backgroundColor = "#0056b3");
+    btnOpen.addEventListener("mouseleave", () => btnOpen.style.backgroundColor = "#007bff");
+
+    // Open/close modal
+    btnOpen.addEventListener("click", () => modal.style.display = "block");
+    btnClose.addEventListener("click", () => modal.style.display = "none");
+
+    // Load reviews
+    async function loadReviews() {
+      reviewsList.innerHTML = "Loading reviews...";
+      try {
+        const res = await fetch(`${BASE}/api/reviews/${productId}`);
+        const json = await res.json();
+        if (!json.success || !json.reviews || json.reviews.length === 0) {
+          reviewsList.innerHTML = "No reviews yet.";
+          return;
+        }
+        reviewsList.innerHTML = json.reviews.map(r => {
+          const stars = '⭐'.repeat(r.rating);
+          return `
+            <div class="loox-review" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:10px; background:#fafafa;">
+              <b>${r.customer_name || "Customer"}</b> ${stars}<br/>
+              ${r.review_text || ""}
+            </div>
+          `;
+        }).join("");
+      } catch(e) {
+        reviewsList.innerHTML = "Error loading reviews.";
+        console.error(e);
+      }
+    }
+
+    // Submit review
+    document.getElementById("rv-submit").addEventListener("click", async () => {
+      const name = document.getElementById("rv-name").value.trim();
+      const rating = document.getElementById("rv-rating").value;
+      const text = document.getElementById("rv-text").value.trim();
+      const photos = document.getElementById("rv-photos").files;
+
+      if (!rating || rating < 1 || rating > 5) {
+        document.getElementById("rv-msg").innerText = "Enter rating 1-5";
         return;
       }
-      reviewsList.innerHTML = json.reviews.map(r => `
-        <div style="border:1px solid #ddd; margin-bottom:6px; padding:4px; border-radius:4px;">
-          <b>${r.customer_name || "Customer"}</b> ⭐ ${r.rating}<br/>
-          ${r.review_text || ""}
-        </div>
-      `).join("");
-    } catch(e) {
-      reviewsList.innerHTML = "Error loading reviews.";
-      console.error(e);
-    }
-  }
 
-  // submit review
-  document.getElementById("rv-submit").addEventListener("click", async () => {
-    const name = document.getElementById("rv-name").value.trim();
-    const rating = document.getElementById("rv-rating").value;
-    const text = document.getElementById("rv-text").value.trim();
-    const photos = document.getElementById("rv-photos").files;
+      const fd = new FormData();
+      fd.append("product_id", productId);
+      fd.append("customer_name", name || "Customer");
+      fd.append("rating", rating);
+      fd.append("review_text", text || "");
+      for (let i=0; i<photos.length; i++) fd.append("images", photos[i]);
 
-    if (!rating || rating < 1 || rating > 5) {
-      document.getElementById("rv-msg").innerText = "Enter rating 1-5";
-      return;
-    }
-
-    const fd = new FormData();
-    fd.append("product_id", productId);
-    fd.append("customer_name", name || "Customer");
-    fd.append("rating", rating);
-    fd.append("review_text", text || "");
-    for (let i=0;i<photos.length;i++) fd.append("images", photos[i]);
-
-    document.getElementById("rv-msg").innerText = "Submitting...";
-    try {
-      const resp = await fetch(`${BASE}/api/reviews/review`, { method:"POST", body: fd });
-      const j = await resp.json();
-      if (resp.ok && j.success) {
-        document.getElementById("rv-msg").innerText = "Submitted!";
-        modal.style.display = "none";
-        setTimeout(loadReviews, 500);
-      } else {
-        document.getElementById("rv-msg").innerText = j.error || j.message || "Failed";
+      document.getElementById("rv-msg").innerText = "Submitting...";
+      try {
+        const resp = await fetch(`${BASE}/api/reviews/review`, { method:"POST", body: fd });
+        const j = await resp.json();
+        if (resp.ok && j.success) {
+          document.getElementById("rv-msg").innerText = "Submitted!";
+          modal.style.display = "none";
+          setTimeout(loadReviews, 500);
+        } else {
+          document.getElementById("rv-msg").innerText = j.error || j.message || "Failed";
+        }
+      } catch(err) {
+        document.getElementById("rv-msg").innerText = "Network error";
+        console.error(err);
       }
-    } catch(err) {
-      document.getElementById("rv-msg").innerText = "Network error";
-      console.error(err);
-    }
-  });
+    });
 
-  // initial load
-  loadReviews();
+    // Initial load
+    loadReviews();
+  });
 })();
