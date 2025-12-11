@@ -345,209 +345,128 @@
 // })();
 
 (async function () {
-  try {
-    const container = document.getElementById("loox-reviews");
-    if (!container) return;
+  const container = document.getElementById("loox-reviews");
+  if (!container) return;
 
-    const BASE_URL = "https://shopify-backend-pqh8.onrender.com";
+  const BASE = window.__LOOX_BASE_URL || "https://shopify-backend-pqh8.onrender.com";
 
-    let productId = window.__LOOX_PRODUCT_ID || "";
-    if (String(productId).includes("gid://")) {
-      productId = productId.replace("gid://shopify/Product/", "");
-    }
-    productId = String(productId).trim();
+  let productId = String(window.__LOOX_PRODUCT_ID || "");
+  if (productId.includes("gid://shopify/Product/")) {
+    productId = productId.replace("gid://shopify/Product/", "");
+  }
 
-    if (!productId) {
-      container.innerHTML = "<p>Product ID missing</p>";
-      return;
-    }
+  // UI ELEMENTS
+  container.innerHTML = `
+    <button id="writeReviewBtn" style="padding:10px 20px;margin-bottom:15px;background:black;color:white;cursor:pointer;">
+      Write a Review
+    </button>
 
-    if (window.__REVIEW_WIDGET_RENDERED__) return;
-    window.__REVIEW_WIDGET_RENDERED__ = true;
+    <div id="reviewForm" style="display:none; border:1px solid #ccc; padding:20px; margin-bottom:20px;">
+      <h3>Write a Review</h3>
+      <input id="name" placeholder="Your Name" style="width:100%;padding:8px;margin:5px 0;" />
+      <input id="rating" type="number" placeholder="Rating (1-5)" min="1" max="5" style="width:100%;padding:8px;margin:5px 0;" />
+      <textarea id="review" placeholder="Write review..." style="width:100%;padding:8px;margin:5px 0;"></textarea>
+      <input id="photo" type="file" />
 
-    container.innerHTML = `
-      <div id="loox-widget-wrap" style="font-family: Arial;">
-        <div style="margin-bottom:12px;">
-          <button id="loox-open" 
-            style="padding:8px 12px;background:#000;color:#fff;border-radius:6px;border:0;cursor:pointer;">
-            Write a Review
-          </button>
-        </div>
+      <button id="submitReviewBtn" style="margin-top:10px;padding:10px;background:green;color:white;cursor:pointer;">Submit Review</button>
+      <button id="closeReviewBtn" style="margin-top:10px;padding:10px;background:red;color:white;cursor:pointer;">Close</button>
+    </div>
 
-        <h3 style="margin-bottom:6px;">Reviews</h3>
-        <div id="loox-list"></div>
-      </div>
+    <h2>Reviews</h2>
+    <div id="reviewsList"></div>
+  `;
 
-      <div id="loox-modal" 
-        style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;
-        align-items:center;justify-content:center;">
-        
-        <div style="background:#fff;padding:18px;border-radius:8px;width:380px;max-width:95%;
-        box-shadow:0 6px 24px rgba(0,0,0,0.2);">
+  const writeReviewBtn = document.getElementById("writeReviewBtn");
+  const reviewForm = document.getElementById("reviewForm");
+  const submitReviewBtn = document.getElementById("submitReviewBtn");
+  const closeReviewBtn = document.getElementById("closeReviewBtn");
+  const reviewsList = document.getElementById("reviewsList");
 
-          <h3 style="margin:0 0 10px 0;">Write a Review</h3>
+  writeReviewBtn.onclick = () => (reviewForm.style.display = "block");
+  closeReviewBtn.onclick = () => (reviewForm.style.display = "none");
 
-          <input id="loox-name" placeholder="Your name"
-            style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ccc;border-radius:4px;" />
+  // FETCH REVIEWS
+  async function loadReviews() {
+    const res = await fetch(`${BASE}/api/reviews/list/${productId}`);
+    const data = await res.json();
 
-          <input id="loox-rating" type="number" min="1" max="5" placeholder="Rating (1-5)"
-            style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ccc;border-radius:4px;" />
+    reviewsList.innerHTML = "";
 
-          <textarea id="loox-text" placeholder="Your review" rows="4"
-            style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ccc;border-radius:4px;"></textarea>
+    data?.reviews?.forEach((r) => {
+      const div = document.createElement("div");
+      div.style = "border:1px solid #ddd; padding:15px; margin:10px 0;";
 
-          <input id="loox-files" type="file" multiple accept="image/*" style="margin-bottom:8px;" />
+      div.innerHTML = `
+        <h3>${r.name}</h3>
+        <p>⭐ ${r.rating}</p>
+        <p>${r.review}</p>
+        ${r.image_url ? `<img src="${r.image_url}" width="80" />` : ""}
+        <br /><br/>
 
-          <div style="display:flex;gap:8px;">
-            <button id="loox-submit" 
-              style="flex:1;padding:10px;background:green;color:#fff;border:0;border-radius:6px;cursor:pointer;">
-              Submit Review
-            </button>
-            <button id="loox-close" 
-              style="padding:10px;background:#c00;color:#fff;border:0;border-radius:6px;cursor:pointer;">
-              Close
-            </button>
-          </div>
+        <button data-id="${r.id}" class="delete-btn"
+          style="padding:6px 12px;background:#ff3333;color:white;border:none;cursor:pointer;">
+          Delete
+        </button>
+      `;
 
-          <div id="loox-msg" style="margin-top:8px;color:#c00;font-size:13px;"></div>
-        </div>
-      </div>
-    `;
+      reviewsList.appendChild(div);
+    });
 
-    const openBtn = document.getElementById("loox-open");
-    const closeBtn = document.getElementById("loox-close");
-    const submitBtn = document.getElementById("loox-submit");
-    const modal = document.getElementById("loox-modal");
-    const listDiv = document.getElementById("loox-list");
-    const msgDiv = document.getElementById("loox-msg");
+    // ENABLE DELETE BUTTONS
+    document.querySelectorAll(".delete-btn").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute("data-id");
 
-    openBtn.addEventListener("click", () => { msgDiv.innerText = ""; modal.style.display = "flex"; });
-    closeBtn.addEventListener("click", () => modal.style.display = "none");
+        if (!confirm("Are you sure you want to delete this review?")) return;
 
-    // -----------------------------
-    // DELETE REVIEW (ADMIN ONLY)
-    // -----------------------------
-    async function deleteReview(id) {
-      if (!confirm("Delete this review?")) return;
-      try {
-        const resp = await fetch(`${BASE_URL}/api/reviews/admin/${id}`, {
+        const del = await fetch(`${BASE}/api/reviews/admin/${id}`, {
           method: "DELETE"
         });
 
-        const data = await resp.json();
-        if (!resp.ok) {
-          alert(data.error || "Delete failed");
-          return;
-        }
+        const result = await del.json();
 
-        await loadReviews();
-      } catch (err) {
-        alert("Network error");
-      }
+        if (result.success) {
+          btn.parentElement.remove();
+        } else {
+          alert("Delete failed");
+        }
+      };
+    });
+  }
+
+  loadReviews();
+
+  // SUBMIT REVIEW
+  submitReviewBtn.onclick = async () => {
+    const name = document.getElementById("name").value.trim();
+    const rating = document.getElementById("rating").value.trim();
+    const review = document.getElementById("review").value.trim();
+    const photo = document.getElementById("photo").files[0];
+
+    if (!name || !rating || !review) {
+      alert("All fields required!");
+      return;
     }
 
-    // -----------------------------
-    // LOAD REVIEWS
-    // -----------------------------
-    async function loadReviews() {
-      listDiv.innerHTML = "Loading reviews...";
+    const form = new FormData();
+    form.append("name", name);
+    form.append("rating", rating);
+    form.append("review", review);
+    form.append("product_id", productId);
+    if (photo) form.append("photo", photo);
 
-      try {
-        const resp = await fetch(`${BASE_URL}/api/reviews/${productId}`);
-        const data = await resp.json();
-
-        const reviews = data.reviews || [];
-        if (!reviews.length) {
-          listDiv.innerHTML = "<p>No reviews yet.</p>";
-          return;
-        }
-
-        listDiv.innerHTML = reviews.map(r => {
-          const stars = "⭐ ".repeat(Number(r.rating || 0)).trim();
-          const imgs = r.photos?.length
-            ? r.photos.map(p => `<img src="${p}" style="max-width:80px;margin-top:8px;" />`).join("")
-            : "";
-
-          const deleteBtn = window.__IS_REVIEW_ADMIN__
-            ? `<button onclick="window.__DELETE_REVIEW__('${r.id}')"
-                 style="background:#c00;color:#fff;border:0;padding:4px 8px;
-                 border-radius:4px;cursor:pointer;float:right;">Delete</button>`
-            : "";
-
-          return `
-            <div style="border:1px solid #e6e6e6;padding:10px;border-radius:8px;
-              margin-bottom:10px;background:#fff;position:relative;">
-              
-              ${deleteBtn}
-
-              <strong>${r.customer_name}</strong><br/>
-              <span>${stars}</span>
-              <p style="margin:8px 0 0 0;">${r.review_text}</p>
-              ${imgs}
-            </div>
-          `;
-        }).join("");
-
-      } catch (err) {
-        listDiv.innerHTML = "<p>Error loading reviews.</p>";
-      }
-    }
-
-    // Global delete function (for inline onclick)
-    window.__DELETE_REVIEW__ = deleteReview;
-
-    await loadReviews();
-
-    // -----------------------------
-    // SUBMIT REVIEW
-    // -----------------------------
-    submitBtn.addEventListener("click", async () => {
-      msgDiv.innerText = "";
-
-      const name = document.getElementById("loox-name").value.trim();
-      const rating = document.getElementById("loox-rating").value.trim();
-      const review_text = document.getElementById("loox-text").value.trim();
-      const files = document.getElementById("loox-files").files;
-
-      if (!name || !rating || !review_text) {
-        msgDiv.innerText = "All fields are required.";
-        return;
-      }
-
-      const form = new FormData();
-      form.append("product_id", productId);
-      form.append("rating", rating);
-      form.append("review_text", review_text);
-      form.append("customer_name", name);
-
-      for (let i = 0; i < files.length; i++) form.append("images", files[i]);
-
-      try {
-        const resp = await fetch(`${BASE_URL}/api/reviews/review`, {
-          method: "POST",
-          body: form
-        });
-
-        const body = await resp.json();
-        if (!resp.ok) {
-          msgDiv.innerText = body.error || body.message || "Error submitting review";
-          return;
-        }
-
-        modal.style.display = "none";
-        document.getElementById("loox-name").value = "";
-        document.getElementById("loox-rating").value = "";
-        document.getElementById("loox-text").value = "";
-        document.getElementById("loox-files").value = "";
-
-        await loadReviews();
-
-      } catch (err) {
-        msgDiv.innerText = "Network error.";
-      }
+    const res = await fetch(`${BASE}/api/reviews/create`, {
+      method: "POST",
+      body: form
     });
 
-  } catch (err) {
-    console.error("Widget init error", err);
-  }
+    const data = await res.json();
+
+    if (data.success) {
+      reviewForm.style.display = "none";
+      loadReviews();
+    } else {
+      alert("Failed to submit");
+    }
+  };
 })();
