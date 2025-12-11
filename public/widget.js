@@ -119,8 +119,10 @@
       productId = productId.replace("gid://shopify/Product/", "");
     }
 
-    // Insert review container below Buy Now button
-    const buyNowBtn = document.querySelector('.product__buy-button'); // adjust selector if needed
+    // Insert review container below Buy It Now button
+    const buyNowBtn = Array.from(document.querySelectorAll('button')).find(
+      b => b.innerText.trim().toLowerCase() === 'buy it now'
+    );
     if (!buyNowBtn) return;
 
     const reviewWrapper = document.createElement('div');
