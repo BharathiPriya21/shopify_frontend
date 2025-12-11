@@ -106,144 +106,153 @@
 
 
 (async function () {
-  const BASE = "https://shopify-backend-pqh8.onrender.com";
+  console.log("⭐ Custom Review Widget Loaded");
 
-  // get container
   const container = document.getElementById("loox-reviews");
   if (!container) return;
 
-  // get product ID
-  let productId = window.__LOOX_PRODUCT_ID || "";
-  if (typeof productId === "string" && productId.includes("gid://")) {
+  let productId = window.__LOOX_PRODUCT_ID;
+  const BASE = window.__LOOX_BASE_URL;
+
+  // Convert Shopify GID to Numeric ID (Safety)
+  if (String(productId).includes("gid://")) {
     productId = productId.replace("gid://shopify/Product/", "");
   }
-  productId = String(productId).trim();
-  if (!productId) {
-    container.innerHTML = "Product ID missing";
-    return;
-  }
 
-  // avoid duplicates
-  if (document.getElementById("loox-reviews-container")) return;
+  // -----------------------------
+  //  ⭐ 1. CREATE "WRITE REVIEW" BUTTON
+  // -----------------------------
+  const writeBtn = document.createElement("button");
+  writeBtn.type = "button"; // IMPORTANT: Prevents Shopify form submit!
+  writeBtn.innerText = "Write a Review";
+  writeBtn.style.padding = "10px 16px";
+  writeBtn.style.background = "#000";
+  writeBtn.style.color = "#fff";
+  writeBtn.style.border = "none";
+  writeBtn.style.borderRadius = "6px";
+  writeBtn.style.cursor = "pointer";
+  writeBtn.style.marginBottom = "20px";
 
-  // find the actual Buy it now button
-  const buyNowBtn = Array.from(document.querySelectorAll("button")).find(
-    (b) => b.innerText.trim().toLowerCase() === "buy it now"
-  );
-  if (!buyNowBtn) {
-    console.log("Buy it now button not found");
-    return;
-  }
+  container.appendChild(writeBtn);
 
-  // create wrapper
-  const wrap = document.createElement("div");
-  wrap.id = "loox-reviews-container";
-  wrap.style.marginTop = "20px";
-
-  // create button
-  const btn = document.createElement("button");
-  btn.innerText = "Write a Review";
-  btn.style.padding = "10px 16px";
-  btn.style.background = "#000";
-  btn.style.color = "#fff";
-  btn.style.border = "none";
-  btn.style.borderRadius = "6px";
-  btn.style.cursor = "pointer";
-  btn.style.marginBottom = "20px";
-
-  wrap.appendChild(btn);
-  container.appendChild(wrap);
-
-  // insert below Buy it now
-  buyNowBtn.parentNode.insertBefore(wrap, buyNowBtn.nextSibling);
-
-  // create modal
+  // -----------------------------
+  // ⭐ 2. CREATE MODAL
+  // -----------------------------
   const modal = document.createElement("div");
-  modal.style.display = "none";
   modal.style.position = "fixed";
   modal.style.top = "0";
   modal.style.left = "0";
   modal.style.width = "100%";
   modal.style.height = "100%";
-  modal.style.background = "rgba(0,0,0,0.6)";
+  modal.style.background = "rgba(0,0,0,0.5)";
+  modal.style.display = "none";
+  modal.style.justifyContent = "center";
+  modal.style.alignItems = "center";
   modal.style.zIndex = "999999";
-  modal.style.paddingTop = "80px";
 
   modal.innerHTML = `
-    <div style="background:#fff; width:420px; margin:auto; padding:20px; border-radius:10px; position:relative;">
-      <h3 style="margin-top:0;">Write a Review</h3>
-      <label>Name</label>
-      <input id="rv_name" style="width:100%; margin-bottom:10px; padding:8px; border:1px solid #ccc; border-radius:6px;" />
-
-      <label>Rating (1–5)</label>
-      <input id="rv_rate" type="number" min="1" max="5" style="width:100%; margin-bottom:10px; padding:8px; border:1px solid #ccc; border-radius:6px;" />
-
-      <label>Review</label>
-      <textarea id="rv_text" style="width:100%; margin-bottom:10px; padding:8px; border:1px solid #ccc; border-radius:6px;"></textarea>
-
-      <label>Photos</label>
-      <input id="rv_photos" type="file" multiple style="margin-bottom:10px;" />
-
-      <button id="rv_submit" style="padding:10px 16px; background:#000; color:#fff; border:0; border-radius:6px; cursor:pointer;">Submit</button>
-
-      <button id="rv_close" style="position:absolute; top:10px; right:10px; background:red; color:#fff; border:none; padding:5px 10px; border-radius:50%; cursor:pointer;">X</button>
+    <div style="background:#fff; padding:20px; width:350px; border-radius:10px;">
+      <h3>Write a Review</h3>
+      <input id="rv_name" placeholder="Your Name" style="width:100%; padding:8px; margin-bottom:10px;">
+      <input id="rv_rating" type="number" min="1" max="5" placeholder="Rating 1-5" style="width:100%; padding:8px; margin-bottom:10px;">
+      <textarea id="rv_text" placeholder="Your Review" style="width:100%; padding:8px; margin-bottom:10px;"></textarea>
+      <input id="rv_img" type="file" accept="image/*" style="margin-bottom:10px;">
+      <br/>
+      <button id="rv_submit" style="padding:10px 16px; background:green; color:white; border:none; border-radius:6px; cursor:pointer;">
+        Submit Review
+      </button>
+      <button id="rv_close" style="padding:10px 16px; background:red; color:white; border:none; border-radius:6px; cursor:pointer; margin-left:10px;">
+        Close
+      </button>
     </div>
   `;
 
   document.body.appendChild(modal);
 
-  // open + close
-  btn.onclick = () => (modal.style.display = "block");
+  writeBtn.onclick = () => (modal.style.display = "flex");
   modal.querySelector("#rv_close").onclick = () => (modal.style.display = "none");
 
-  // reviews list
-  const listBox = document.createElement("div");
-  wrap.appendChild(listBox);
+  // -----------------------------
+  // ⭐ 3. SUBMIT REVIEW → API POST
+  // -----------------------------
+  modal.querySelector("#rv_submit").onclick = async () => {
+    const name = document.getElementById("rv_name").value;
+    const rating = document.getElementById("rv_rating").value;
+    const text = document.getElementById("rv_text").value;
+    const img = document.getElementById("rv_img").files[0];
 
+    if (!name || !rating || !text) return alert("All fields required!");
+
+    const formData = new FormData();
+    formData.append("customer_name", name);
+    formData.append("rating", rating);
+    formData.append("review_text", text);
+    formData.append("product_id", productId);
+    if (img) formData.append("image", img);
+
+    try {
+      const res = await fetch(`${BASE}/api/reviews/create`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        alert("Review Submitted!");
+        modal.style.display = "none";
+        loadReviews(); // refresh reviews
+      } else {
+        alert("Error submitting review");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
+
+  // -----------------------------
+  // ⭐ 4. LOAD REVIEWS (GET API)
+  // -----------------------------
   async function loadReviews() {
+    container.innerHTML = "";
+    container.appendChild(writeBtn);
+
     try {
       const res = await fetch(`${BASE}/api/reviews/${productId}`);
       const json = await res.json();
 
-      listBox.innerHTML =
-        json.reviews
-          .map(
-            (r) => `
-        <div style="padding:10px; margin-bottom:10px; background:#fafafa; border-radius:6px;">
-          <b>${r.customer_name}</b> — ${"⭐".repeat(r.rating)}<br>
-          ${r.review_text}
+      if (!json.success || json.reviews.length === 0) {
+        container.innerHTML += "<p>No Reviews Yet</p>";
+        container.appendChild(writeBtn);
+        return;
+      }
+
+      const html = json.reviews
+        .map(
+          (r) => `
+        <div style="padding:10px; border:1px solid #ddd; border-radius:6px; margin:10px 0;">
+          <b>${r.customer_name}</b><br/>
+          ⭐ Rating: ${r.rating}<br/>
+          <p>${r.review_text}</p>
+          ${
+            r.image_url
+              ? `<img src="${BASE + r.image_url}" style="width:80px; margin-top:8px;">`
+              : ""
+          }
+          <small>${new Date(r.created_at).toLocaleString()}</small>
         </div>
       `
-          )
-          .join("") || "<p>No reviews yet.</p>";
+        )
+        .join("");
+
+      container.innerHTML += html;
+      container.appendChild(writeBtn);
     } catch (err) {
-      listBox.innerHTML = "Failed to load reviews.";
+      console.error(err);
+      container.innerHTML = "Error loading reviews.";
     }
   }
 
   loadReviews();
-
-  // submit review
-  document.getElementById("rv_submit").onclick = async () => {
-    const fd = new FormData();
-    fd.append("product_id", productId);
-    fd.append("customer_name", document.getElementById("rv_name").value);
-    fd.append("rating", document.getElementById("rv_rate").value);
-    fd.append("review_text", document.getElementById("rv_text").value);
-
-    const photos = document.getElementById("rv_photos").files;
-    for (let i = 0; i < photos.length; i++) fd.append("images", photos[i]);
-
-    try {
-      await fetch(`${BASE}/api/reviews/review`, {
-        method: "POST",
-        body: fd,
-      });
-
-      modal.style.display = "none";
-      loadReviews();
-    } catch (err) {
-      alert("Failed to submit review");
-    }
-  };
 })();
